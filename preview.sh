@@ -1,6 +1,6 @@
 #!/bin/bash
 # Displays the boot splash for a few seconds
-# Should be executed as root from tty2
+# Should be executed with root privileges from tty2
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
