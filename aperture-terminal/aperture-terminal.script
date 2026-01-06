@@ -102,7 +102,7 @@ fun SetLine(text, lineIndex, draw) {
         draw = 1;
     }
 
-    TruncateText(text);
+    text = TruncateText(text);
 
     gTerminal._lines[lineIndex] = TextToImage(text);
     if (draw) {
