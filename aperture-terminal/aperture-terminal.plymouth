@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=aperture-terminal
+Description=Aperture Science terminal-esque theme for plymouth
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/aperture-terminal
+ScriptFile=/usr/share/plymouth/themes/aperture-terminal/aperture-terminal.script
