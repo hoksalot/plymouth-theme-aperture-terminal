@@ -21,19 +21,30 @@ fun InitTerminal() {
     gTerminal.G = 123 / 255;  // [0.0-1.0]
     gTerminal.B = 35 / 255;  // [0.0-1.0]
     gTerminal.A = 1.0;  // [0.0-1.0]
+
     gTerminal.LINE_WIDTH = 148;  // Characters
     gTerminal.LINE_COUNT = 51;
+
     gTerminal.Z = 2;
     gTerminal.X_FACTOR = 3.5 / 100;  // [0.0-1.0] (ratio of screen)
     gTerminal.Y_FACTOR = 5 / 100;  // [0.0-1.0] (ratio of screen)
     gTerminal.LINE_SPACING_FACTOR = 0.74;
+
     gTerminal.TEXT_PREVIEW = 0;  // bool: Fills the screen with text to help adjust the text settings
+
     gTerminal.SHOW_BULLETS = 1;  // bool: Whether to show the bullet characters (this exposes the length of the password)
     gTerminal.BULLET_CHAR = "*";
+
     gTerminal.INTERACTIVE_LINE_COUNT = 2;  // Number of lines from the bottom which are handled specially in interactive mode
     gTerminal.INTERACTIVE_PREFIX = "> ";  // Prefix of the user input line
+    gTerminal.REFRESH_FREQ = 50;  // Refresh frequency in Hz (this is decided by Plymouth, the constant is only for calculating with it)
+    gTerminal.CURSOR_BLINK_FREQ = 3;  // (0<) The cursor's blink frequency in Hz (in interactive mode)
+    gTerminal.CURSOR_CHAR = "_";
 
+    gTerminal._cursorTimer = 0;
+    gTerminal._isCursorVisible = 0;
     gTerminal._isInteractive = 0;
+    gTerminal._input = "";
 
     // Shouldn't be an empty string, because then when converted to an image,
     // it will have 0 height, causing all lines to be put in the same position
@@ -137,6 +148,7 @@ fun SetInteractive(isInteractive) {
             AppendLine("");
         }
     }
+    SetCursorVisible(0);
     gTerminal._isInteractive = isInteractive;
 }
 
@@ -146,7 +158,31 @@ fun GetInteractive() {
 
 fun UpdateInteractive(prompt, input) {
     SetLine(prompt, gTerminal.LINE_COUNT - 2);
-    SetLine(gTerminal.INTERACTIVE_PREFIX + input, gTerminal.LINE_COUNT - 1);
+    gTerminal._input = gTerminal.INTERACTIVE_PREFIX + input;
+    SetCursorVisible(1);  // This also draws the line immediately
+}
+
+fun SetCursorVisible(isVisible) {
+    gTerminal._isCursorVisible = isVisible;
+    gTerminal._cursorTimer = 0;
+
+    content = gTerminal._input;
+
+    if (gTerminal._isCursorVisible) {
+        content += gTerminal.CURSOR_CHAR;
+    }
+    SetLine(content, gTerminal.LINE_COUNT - 1);
+}
+
+fun UpdateCursor() {
+    if (!GetInteractive()) {
+        return;
+    }
+
+    gTerminal._cursorTimer++;
+    if (gTerminal._cursorTimer >= gTerminal.REFRESH_FREQ / gTerminal.CURSOR_BLINK_FREQ) {
+        SetCursorVisible(!gTerminal._isCursorVisible);
+    }
 }
 
 // MARK: Callbacks
@@ -168,7 +204,7 @@ fun DisplayPasswordPrompt(prompt, nBullets) {
     bulletStr = "";
     if (gTerminal.SHOW_BULLETS) {
         for (i = 0; i < nBullets; i++) {
-            bulletStr += gTerminal.BULLET_CHAR = "*";
+            bulletStr += gTerminal.BULLET_CHAR;
         }
     }
     UpdateInteractive(prompt, bulletStr);
@@ -187,6 +223,11 @@ fun DisplayRootMounted() {
     DisplayMessage("new root mounted");
 }
 
+fun OnRefresh() {
+    // Called 50 times every second according to the docs
+    UpdateCursor();
+}
+
 // MARK: Main
 fun Main() {
     InitBackground();
@@ -198,5 +239,6 @@ fun Main() {
     Plymouth.SetDisplayPasswordFunction(DisplayPasswordPrompt);
     Plymouth.SetDisplayQuestionFunction(DisplayQuestionPrompt);
     Plymouth.SetDisplayNormalFunction(DisplayNormal);
+    Plymouth.SetRefreshFunction(OnRefresh);
 }
 Main();
