@@ -95,9 +95,6 @@ fun TruncateText(text) {
 }
 
 fun SetLine(text, lineIndex, draw) {
-    if (lineIndex == NULL) {
-        lineIndex = gTerminal.LINE_COUNT - 1;
-    }
     if (draw == NULL) {
         draw = 1;
     }
