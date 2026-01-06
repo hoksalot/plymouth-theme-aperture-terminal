@@ -38,13 +38,14 @@ fun InitTerminal() {
     gTerminal.INTERACTIVE_LINE_COUNT = 2;  // Number of lines from the bottom which are handled specially in interactive mode
     gTerminal.INTERACTIVE_PREFIX = "> ";  // Prefix of the user input line
     gTerminal.REFRESH_FREQ = 50;  // Refresh frequency in Hz (this is decided by Plymouth, the constant is only for calculating with it)
+    gTerminal.CURSOR_ENABLED = 1;  // bool: Whether to display the blinking cursor
     gTerminal.CURSOR_BLINK_FREQ = 3;  // (0<) The cursor's blink frequency in Hz (in interactive mode)
     gTerminal.CURSOR_CHAR = "_";
 
     gTerminal._cursorTimer = 0;
+    gTerminal._interactiveLine = "";
     gTerminal._isCursorVisible = 0;
     gTerminal._isInteractive = 0;
-    gTerminal._input = "";
 
     // Shouldn't be an empty string, because then when converted to an image,
     // it will have 0 height, causing all lines to be put in the same position
@@ -59,17 +60,14 @@ fun InitTerminal() {
 
     // Initialize sprites and their positions
     for (i = 0; i < gTerminal.LINE_COUNT; i++) {
-        gTerminal._lines[i] = TextToImage(gTerminal._initText);
+        gTerminal._lines[i] = gTerminal._initText;
         gTerminal._sprites[i] = SpriteNew();
+        DrawLine(i);
         gTerminal._sprites[i].SetPosition(
             Window.GetX() + Window.GetWidth() * gTerminal.X_FACTOR,
-            Window.GetY() + Window.GetHeight() * gTerminal.Y_FACTOR + (i * gTerminal._lines[i].GetHeight() * gTerminal.LINE_SPACING_FACTOR),
+            Window.GetY() + Window.GetHeight() * gTerminal.Y_FACTOR + (i * gTerminal._sprites[i].GetImage().GetHeight() * gTerminal.LINE_SPACING_FACTOR),
             MSG_Z
         );
-        if (gTerminal.TEXT_PREVIEW) {
-            gTerminal._sprites[i].SetImage(gTerminal._lines[i]);
-        }
-
     }
 }
 
@@ -78,7 +76,7 @@ fun TextToImage(text) {
 }
 
 fun DrawLine(index) {
-    gTerminal._sprites[index].SetImage(gTerminal._lines[index]);
+    gTerminal._sprites[index].SetImage(TextToImage(gTerminal._lines[index]));
 }
 
 fun DrawLines(count) {
@@ -112,7 +110,7 @@ fun SetLine(text, lineIndex, draw) {
 
     text = TruncateText(text);
 
-    gTerminal._lines[lineIndex] = TextToImage(text);
+    gTerminal._lines[lineIndex] = text;
     if (draw) {
         DrawLine(lineIndex);
     }
@@ -120,7 +118,14 @@ fun SetLine(text, lineIndex, draw) {
 
 fun AppendLine(text, lineIndex, draw) {
     if (lineIndex == NULL) {
-        lineIndex = gTerminal.LINE_COUNT - 1;
+        if (gTerminal._isInteractive) {
+            // Insert before the "interactive" line
+            lineIndex = gTerminal.LINE_COUNT - 1 - gTerminal.INTERACTIVE_LINE_COUNT;
+        }
+        else {
+            // Insert at the end
+            lineIndex = gTerminal.LINE_COUNT - 1;
+        }
     }
     if (draw == NULL) {
         draw = 1;
@@ -148,25 +153,34 @@ fun SetInteractive(isInteractive) {
             AppendLine("");
         }
     }
-    SetCursorVisible(0);
+    else {
+        SetCursorVisible(0);
+    }
     gTerminal._isInteractive = isInteractive;
-}
-
-fun GetInteractive() {
-    return gTerminal._isInteractive;
 }
 
 fun UpdateInteractive(prompt, input) {
     SetLine(prompt, gTerminal.LINE_COUNT - 2);
-    gTerminal._input = gTerminal.INTERACTIVE_PREFIX + input;
-    SetCursorVisible(1);  // This also draws the line immediately
+
+    gTerminal._interactiveLine = gTerminal.INTERACTIVE_PREFIX + input;
+    if (gTerminal.CURSOR_ENABLED) {
+        // Here the interactive line is drawn by SetCursorVisible,
+        // no need to set it beforehand
+        SetCursorVisible(1);
+    }
+    else {
+        SetLine(gTerminal._interactiveLine, gTerminal.LINE_COUNT - 1);
+    }
 }
 
 fun SetCursorVisible(isVisible) {
-    gTerminal._isCursorVisible = isVisible;
+    if (!gTerminal.CURSOR_ENABLED) {
+        return;
+    }
     gTerminal._cursorTimer = 0;
+    gTerminal._isCursorVisible = isVisible;
 
-    content = gTerminal._input;
+    content = gTerminal._interactiveLine;
 
     if (gTerminal._isCursorVisible) {
         content += gTerminal.CURSOR_CHAR;
@@ -175,7 +189,7 @@ fun SetCursorVisible(isVisible) {
 }
 
 fun UpdateCursor() {
-    if (!GetInteractive()) {
+    if (!gTerminal._isInteractive || !gTerminal.CURSOR_ENABLED) {
         return;
     }
 
@@ -187,16 +201,7 @@ fun UpdateCursor() {
 
 // MARK: Callbacks
 fun DisplayMessage(text) {
-    if (GetInteractive()) {
-        // Insert before the "interactive" line
-        lineIndex = gTerminal.LINE_COUNT - 1 - gTerminal.INTERACTIVE_LINE_COUNT;
-    }
-    else {
-        // Insert at the end
-        lineIndex = gTerminal.LINE_COUNT - 1;
-    }
-
-    AppendLine(text, lineIndex);
+    AppendLine(text);
 }
 
 fun DisplayPasswordPrompt(prompt, nBullets) {
